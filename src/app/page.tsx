@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+
+// 3D Rupee — loaded client-side only (WebGL / Canvas)
+const ThreeRupee = dynamic(() => import('@/components/ThreeRupee'), { ssr: false, loading: () => null });
 
 // ─── UTILITIES ─────────────────────────────────────────────────────────────────
 
@@ -52,11 +56,10 @@ function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-        scrolled
-          ? 'bg-[#F9F7F2]/90 backdrop-blur-md shadow-sm border-b border-[#1B3022]/5'
-          : 'bg-transparent'
-      }`}
+      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled
+        ? 'bg-[#F9F7F2]/90 backdrop-blur-md shadow-sm border-b border-[#1B3022]/5'
+        : 'bg-transparent'
+        }`}
     >
       <div className="max-w-7xl mx-auto px-6 sm:px-8 flex items-center justify-between py-4">
         <a href="#" className="flex items-center gap-2.5 group">
@@ -210,8 +213,8 @@ function Hero() {
   }, [scrollYProgress, renderFrame]);
 
   return (
-    <section ref={containerRef} id="hero" className="relative h-[180vh]">
-      <div className="sticky top-0 h-screen w-full overflow-hidden">
+    <section ref={containerRef} id="hero" className="relative min-h-screen">
+      <div className="relative h-screen w-full overflow-hidden">
         {/* Canvas for scroll-scrub image sequence */}
         <canvas
           ref={canvasRef}
@@ -332,7 +335,7 @@ function Hero() {
 
 function About() {
   return (
-    <section id="about" className="py-32">
+    <section id="about" className="pt-16 pb-32">
       <div className="max-w-4xl mx-auto px-6 sm:px-8">
         <FadeUp className="mb-16">
           <span className="inline-block px-4 py-1.5 bg-[#1B3022]/8 text-[#B66D4B] text-sm font-semibold rounded-full mb-6 tracking-wide uppercase">
@@ -877,6 +880,8 @@ function Footer() {
 export default function Home() {
   return (
     <main className="min-h-screen w-full overflow-x-hidden">
+      {/* 3D Rupee — fixed behind all content, scroll-reactive */}
+      <ThreeRupee />
       <Navbar />
       <Hero />
       <About />
