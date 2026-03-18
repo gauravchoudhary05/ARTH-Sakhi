@@ -31,99 +31,108 @@ function RupeeMesh({ scrollRef }: { scrollRef: React.MutableRefObject<number> })
     curveSegments: 32,
   }), []);
 
-  useFrame((_state, delta) => {
-    if (!groupRef.current) return;
-    const s = scrollRef.current;
+  import { useThree } from '@react-three/fiber'; // Add this to your imports at the top
 
-    // 1. Extreme Horizontal Weave: Increased from 3.5 to 7.5 to hit the screen edges
-    const targetPosX = Math.cos(s * Math.PI * 3) * -7.5;
+  function RupeeMesh({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
+    const groupRef = useRef<THREE.Group>(null);
+    const { viewport } = useThree(); // This gives us the width/height of the screen in 3D units
 
-    // 2. Extreme Vertical Path: Increased the travel distance to cover more of the screen height
-    const targetPosY = 3.5 - (s * 7.0);
+    useFrame((_state, delta) => {
+      if (!groupRef.current) return;
+      const s = scrollRef.current;
 
-    // 3. Luxurious Spin
-    const targetRotY = s * Math.PI * 8;
+      // CALCULATE EDGES DYNAMICALLY
+      // We divide by 2 because the center is 0. Subtract 1 to keep it slightly inside the edge.
+      const edgeX = (viewport.width / 2) - 1.2;
+      const edgeY = (viewport.height / 2) - 1.0;
 
-    // 4. Dynamic Tilt
-    const targetRotZ = 0.2 + Math.sin(s * Math.PI * 2) * 0.1;
+      // 1. HORIZONTAL: Weave from far left to far right
+      const targetPosX = Math.cos(s * Math.PI * 3) * -edgeX;
 
-    // Smooth Interpolation
-    groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 4);
-    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 4);
-    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, delta * 4);
-    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, targetRotZ, delta * 4);
-  });
+      // 2. VERTICAL: Start at the top edge and move to the bottom edge
+      const targetPosY = edgeY - (s * viewport.height);
 
-  return (
-    <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
-      <group ref={groupRef} position={[-3, 2.5, 0]}>
-        {/* Center aligns the physical mass of the object so it spins cleanly */}
-        <Center>
-          {/* Scale down to a much sleeker size and flip Y */}
-          <mesh scale={[0.008, -0.008, 0.008]}>
-            <extrudeGeometry args={[shapes, extrudeSettings]} />
-            <meshStandardMaterial
-              color="#D4926F"
-              metalness={0.95}       // Makes it act like a mirror
-              roughness={0.15}       // Highly polished
-              envMapIntensity={2.5}  // Forces it to reflect the environment deeply
-            />
-          </mesh>
-        </Center>
-      </group>
-    </Float>
-  );
-}
+      // 3. SPIN & TILT
+      const targetRotY = s * Math.PI * 10; // Extra spins for flair
+      const targetRotZ = 0.2 + Math.sin(s * Math.PI * 2) * 0.15;
 
-// ─── FULL 3D SCENE ────────────────────────────────────────────────────────────
+      // Smooth movement
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 4);
+      groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 4);
+      groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, delta * 4);
+      groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, targetRotZ, delta * 4);
+    });
 
-function Scene({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
-  return (
-    <>
-      <ambientLight intensity={1.0} color="#ffffff" />
-      <directionalLight position={[5, 10, 5]} intensity={2.5} color="#ffe5c8" />
-      <directionalLight position={[-5, 5, -5]} intensity={1.0} color="#c5d5ff" />
-      {/* Studio environment map is required to make the metal look realistic */}
-      <Environment preset="studio" />
-      <RupeeMesh scrollRef={scrollRef} />
-    </>
-  );
-}
+    return (
+      <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
+        <group ref={groupRef} position={[-3, 2.5, 0]}>
+          {/* Center aligns the physical mass of the object so it spins cleanly */}
+          <Center>
+            {/* Scale down to a much sleeker size and flip Y */}
+            <mesh scale={[0.008, -0.008, 0.008]}>
+              <extrudeGeometry args={[shapes, extrudeSettings]} />
+              <meshStandardMaterial
+                color="#D4926F"
+                metalness={0.95}       // Makes it act like a mirror
+                roughness={0.15}       // Highly polished
+                envMapIntensity={2.5}  // Forces it to reflect the environment deeply
+              />
+            </mesh>
+          </Center>
+        </group>
+      </Float>
+    );
+  }
 
-// ─── SCROLL VALUE BRIDGE ──────────────────────────────────────────────────────
+  // ─── FULL 3D SCENE ────────────────────────────────────────────────────────────
 
-function ScrollBridge({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
-  const { scrollYProgress } = useScroll();
-  useMotionValueEvent(scrollYProgress, 'change', (v) => {
-    scrollRef.current = v;
-  });
-  return null;
-}
+  function Scene({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
+    return (
+      <>
+        <ambientLight intensity={1.0} color="#ffffff" />
+        <directionalLight position={[5, 10, 5]} intensity={2.5} color="#ffe5c8" />
+        <directionalLight position={[-5, 5, -5]} intensity={1.0} color="#c5d5ff" />
+        {/* Studio environment map is required to make the metal look realistic */}
+        <Environment preset="studio" />
+        <RupeeMesh scrollRef={scrollRef} />
+      </>
+    );
+  }
 
-// ─── PUBLIC COMPONENT ─────────────────────────────────────────────────────────
+  // ─── SCROLL VALUE BRIDGE ──────────────────────────────────────────────────────
 
-export default function ThreeRupee() {
-  const scrollRef = useRef(0);
+  function ScrollBridge({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
+    const { scrollYProgress } = useScroll();
+    useMotionValueEvent(scrollYProgress, 'change', (v) => {
+      scrollRef.current = v;
+    });
+    return null;
+  }
 
-  return (
-    <>
-      <ScrollBridge scrollRef={scrollRef} />
+  // ─── PUBLIC COMPONENT ─────────────────────────────────────────────────────────
 
-      <div
-        className="fixed inset-0 pointer-events-none w-full h-full"
-        style={{ zIndex: 50 }}
-        aria-hidden="true"
-      >
-        <Canvas
-          camera={{ position: [0, 0, 16], fov: 50 }}
-          gl={{ antialias: true, alpha: true }}
-          style={{ background: 'transparent' }}
+  export default function ThreeRupee() {
+    const scrollRef = useRef(0);
+
+    return (
+      <>
+        <ScrollBridge scrollRef={scrollRef} />
+
+        <div
+          className="fixed inset-0 pointer-events-none w-full h-full"
+          style={{ zIndex: 50 }}
+          aria-hidden="true"
         >
-          <Suspense fallback={null}>
-            <Scene scrollRef={scrollRef} />
-          </Suspense>
-        </Canvas>
-      </div>
-    </>
-  );
-}// Final push update
+          <Canvas
+            camera={{ position: [0, 0, 16], fov: 50 }}
+            gl={{ antialias: true, alpha: true }}
+            style={{ background: 'transparent' }}
+          >
+            <Suspense fallback={null}>
+              <Scene scrollRef={scrollRef} />
+            </Suspense>
+          </Canvas>
+        </div>
+      </>
+    );
+  }// Final push update
