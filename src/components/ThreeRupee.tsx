@@ -37,26 +37,23 @@ function RupeeMesh({ scrollRef }: { scrollRef: React.MutableRefObject<number> })
     const groupRef = useRef<THREE.Group>(null);
     const { viewport } = useThree(); // This gives us the width/height of the screen in 3D units
 
+    const { viewport } = useThree(); // Make sure this is imported from '@react-three/fiber'
+
     useFrame((_state, delta) => {
       if (!groupRef.current) return;
       const s = scrollRef.current;
 
-      // CALCULATE EDGES DYNAMICALLY
-      // We divide by 2 because the center is 0. Subtract 1 to keep it slightly inside the edge.
-      const edgeX = (viewport.width / 2) - 1.2;
-      const edgeY = (viewport.height / 2) - 1.0;
+      // 1. DYNAMIC WIDTH: Moves to exactly the edge of whatever screen the user has
+      // We use viewport.width to find the 3D edge, then multiply by 0.48 (48%)
+      const targetPosX = Math.cos(s * Math.PI * 3) * -(viewport.width * 0.48);
 
-      // 1. HORIZONTAL: Weave from far left to far right
-      const targetPosX = Math.cos(s * Math.PI * 3) * -edgeX;
+      // 2. VERTICAL PATH: Hits top and bottom corners
+      const targetPosY = (viewport.height * 0.45) - (s * viewport.height * 0.9);
 
-      // 2. VERTICAL: Start at the top edge and move to the bottom edge
-      const targetPosY = edgeY - (s * viewport.height);
-
-      // 3. SPIN & TILT
-      const targetRotY = s * Math.PI * 10; // Extra spins for flair
+      // 3. LUXURY SPIN
+      const targetRotY = s * Math.PI * 8;
       const targetRotZ = 0.2 + Math.sin(s * Math.PI * 2) * 0.15;
 
-      // Smooth movement
       groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 4);
       groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 4);
       groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, delta * 4);
@@ -118,15 +115,18 @@ function RupeeMesh({ scrollRef }: { scrollRef: React.MutableRefObject<number> })
       <>
         <ScrollBridge scrollRef={scrollRef} />
 
+        {/* FIXED: We use w-screen and left-0 to ensure it hits the absolute desktop edges */}
         <div
-          className="fixed inset-0 pointer-events-none w-full h-full"
-          style={{ zIndex: 50 }}
+          className="fixed top-0 left-0 w-screen h-screen pointer-events-none"
+          style={{ zIndex: 60, opacity: 1 }}
           aria-hidden="true"
         >
           <Canvas
-            camera={{ position: [0, 0, 16], fov: 50 }}
-            gl={{ antialias: true, alpha: true }}
-            style={{ background: 'transparent' }}
+            // FIXED: We pull the camera back slightly and widen the FOV
+            camera={{ position: [0, 0, 15], fov: 55 }}
+            gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
+            style={{ background: 'transparent', width: '100%', height: '100%' }}
+            dpr={typeof window !== 'undefined' ? Math.min(window.devicePixelRatio, 2) : 1}
           >
             <Suspense fallback={null}>
               <Scene scrollRef={scrollRef} />
