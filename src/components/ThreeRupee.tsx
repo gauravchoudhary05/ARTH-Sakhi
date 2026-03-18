@@ -45,7 +45,7 @@ function DesktopRupee({ scrollRef, shapes, extrudeSettings }: any) {
   );
 }
 
-// ─── 2. MOBILE CODE (HIDE & SEEK EFFECT) ──────────────────────────────────────
+// ─── 2. MOBILE SPECIFIC COMPONENT ─────────────────────────────────────────────
 function MobileRupee({ scrollRef, shapes, extrudeSettings }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
@@ -54,27 +54,30 @@ function MobileRupee({ scrollRef, shapes, extrudeSettings }: any) {
     if (!groupRef.current) return;
     const s = scrollRef.current;
 
-    // 1. Massive swing multiplier (8.0). This guarantees it spends most of its time off-screen.
-    const horizontalSwing = 8.0;
+    // --- THE "EDGE PEEK" MATH ---
+    // We get the exact right edge of the user's phone screen
+    const rightEdge = (viewport.width / 2);
+
+    // It weaves starting from the right edge, moving slightly left, and going back off-screen.
+    // It will NEVER cross 0 (the center text area).
+    const targetPosX = rightEdge + (Math.cos(s * Math.PI * 4) * 2.0);
 
     const topEdge = (viewport.height / 2) - 3.0;
     const bottomEdge = -(viewport.height / 2) + 3.0;
-
-    // 2. We use PI * 2 so it only crosses the text TWICE during the entire page scroll
-    const targetPosX = Math.cos(s * Math.PI * 2) * -horizontalSwing;
     const targetPosY = topEdge - (s * (topEdge - bottomEdge));
 
     const targetRotY = 0.2 + (s * Math.PI * 8);
     const targetRotZ = 0.4 + (s * 0.1);
 
-    // 3. Scale down slightly to 0.65. It will still look big on a phone, but won't block the screen.
-    const targetScale = 0.65;
+    // Scale down slightly to 0.5 so it is a tasteful accent
+    const targetScale = 0.5;
 
     groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 4);
     groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 4);
     groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, delta * 4);
     groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, targetRotZ, delta * 4);
 
+    // Smoothly apply the mobile scale
     groupRef.current.scale.set(
       THREE.MathUtils.lerp(groupRef.current.scale.x, targetScale, delta * 4),
       THREE.MathUtils.lerp(groupRef.current.scale.y, targetScale, delta * 4),
@@ -143,7 +146,7 @@ export default function ThreeRupee() {
   return (
     <>
       <ScrollBridge scrollRef={scrollRef} />
-      <div className="fixed inset-0 w-screen h-screen pointer-events-none" style={{ zIndex: 99, left: 0, top: 0 }} aria-hidden="true">
+      <div className="fixed inset-0 w-screen h-screen pointer-events-none" style={{ zIndex: -1, left: 0, top: 0 }} aria-hidden="true">
         <Canvas camera={{ position: [0, 0, 12], fov: 50 }} gl={{ antialias: true, alpha: true }} style={{ width: '100vw', height: '100vh' }}>
           <Suspense fallback={null}><Scene scrollRef={scrollRef} /></Suspense>
         </Canvas>
