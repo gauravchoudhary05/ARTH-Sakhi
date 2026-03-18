@@ -7,7 +7,7 @@ import { useScroll, useMotionValueEvent } from 'framer-motion';
 import * as THREE from 'three';
 import { SVGLoader } from 'three-stdlib';
 
-// ─── 1. DESKTOP SPECIFIC CODE ─────────────────────────────────────────────────
+// ─── 1. DESKTOP SPECIFIC COMPONENT ────────────────────────────────────────────
 function DesktopRupee({ scrollRef, shapes, extrudeSettings }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
@@ -16,7 +16,7 @@ function DesktopRupee({ scrollRef, shapes, extrudeSettings }: any) {
     if (!groupRef.current) return;
     const s = scrollRef.current;
 
-    // Desktop Math: Stays safely on screen with 3.5 padding
+    // Desktop Math: Safe 3.5 padding
     const horizontalEdge = (viewport.width / 2) - 3.5;
     const topEdge = (viewport.height / 2) - 3.0;
     const bottomEdge = -(viewport.height / 2) + 3.0;
@@ -46,7 +46,7 @@ function DesktopRupee({ scrollRef, shapes, extrudeSettings }: any) {
   );
 }
 
-// ─── 2. MOBILE SPECIFIC CODE ──────────────────────────────────────────────────
+// ─── 2. MOBILE SPECIFIC COMPONENT ─────────────────────────────────────────────
 function MobileRupee({ scrollRef, shapes, extrudeSettings }: any) {
   const groupRef = useRef<THREE.Group>(null);
   const { viewport } = useThree();
@@ -55,7 +55,7 @@ function MobileRupee({ scrollRef, shapes, extrudeSettings }: any) {
     if (!groupRef.current) return;
     const s = scrollRef.current;
 
-    // Mobile Math: Massive swing (12.0) to sweep completely off screen
+    // Mobile Math: Massive 12.0 swing to disappear off-screen
     const horizontalSwing = 12.0;
     const topEdge = (viewport.height / 2) - 3.0;
     const bottomEdge = -(viewport.height / 2) + 3.0;
@@ -75,7 +75,7 @@ function MobileRupee({ scrollRef, shapes, extrudeSettings }: any) {
     <Float speed={2} rotationIntensity={0.2} floatIntensity={0.5}>
       <group ref={groupRef}>
         <Center>
-          <mesh scale={[0.008, -0.008, 0.008]}> {/* Stays full size! */}
+          <mesh scale={[0.008, -0.008, 0.008]}> {/* Full size! */}
             <extrudeGeometry args={[shapes, extrudeSettings]} />
             <meshStandardMaterial color="#D4926F" metalness={0.95} roughness={0.15} envMapIntensity={2.5} />
           </mesh>
@@ -85,11 +85,11 @@ function MobileRupee({ scrollRef, shapes, extrudeSettings }: any) {
   );
 }
 
-// ─── 3. THE SWITCHER COMPONENT ────────────────────────────────────────────────
+// ─── 3. THE SWITCHER (THE BRAINS) ─────────────────────────────────────────────
 function ResponsiveRupee({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
   const { viewport } = useThree();
 
-  // Create the shape data ONCE and pass it to whichever component is active
+  // We process the heavy 3D shape only ONCE here, then pass it down
   const shapes = useMemo(() => {
     const svg = `<svg viewBox="0 0 320 512"><path d="M308 96c6.627 0 12-5.373 12-12V44c0-6.627-5.373-12-12-12H12C5.373 32 0 37.373 0 44v40c0 6.627 5.373 12 12 12h67.46C96.9 110.6 117.8 138 131.6 172.5H12c-6.627 0-12 5.373-12 12v40c0 6.627 5.373 12 12 12h125.6c-10.7 44.5-44.1 79.4-89.6 86.8v6.2c0 20.3 11.2 38.6 28.7 48.4L202.9 455c8.3 4.7 18.7 2.9 25.1-4.2l28.6-31.7c6.1-6.8 4.9-17.5-2.5-22.9l-118.8-87.1c42.8-12.2 78-43 94.7-84.6H308c6.627 0 12-5.373 12-12v-40c0-6.627-5.373-12-12-12h-74.9c-2-12.7-5.4-24.8-10-36.5H308z"/></svg>`;
     const loader = new SVGLoader();
@@ -100,10 +100,10 @@ function ResponsiveRupee({ scrollRef }: { scrollRef: React.MutableRefObject<numb
     depth: 12, bevelEnabled: true, bevelThickness: 1.5, bevelSize: 1, bevelSegments: 4, curveSegments: 32,
   }), []);
 
-  // Detect Mobile
+  // Is the screen narrow?
   const isMobile = viewport.width < 5;
 
-  // Render the correct component!
+  // Serve the correct version!
   if (isMobile) {
     return <MobileRupee scrollRef={scrollRef} shapes={shapes} extrudeSettings={extrudeSettings} />;
   } else {
@@ -111,7 +111,7 @@ function ResponsiveRupee({ scrollRef }: { scrollRef: React.MutableRefObject<numb
   }
 }
 
-// ─── FULL 3D SCENE ────────────────────────────────────────────────────────────
+// ─── FULL 3D SCENE & WRAPPERS ─────────────────────────────────────────────────
 function Scene({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
   return (
     <>
@@ -124,7 +124,6 @@ function Scene({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
   );
 }
 
-// ─── SCROLL VALUE BRIDGE & MAIN COMPONENT (REMAIN SAME) ───────────────────────
 function ScrollBridge({ scrollRef }: { scrollRef: React.MutableRefObject<number> }) {
   const { scrollYProgress } = useScroll();
   useMotionValueEvent(scrollYProgress, 'change', (v) => { scrollRef.current = v; });
