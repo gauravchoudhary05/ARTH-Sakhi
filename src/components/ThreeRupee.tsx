@@ -33,22 +33,21 @@ function RupeeMesh({ scrollRef }: { scrollRef: React.MutableRefObject<number> })
 
   useFrame((_state, delta) => {
     if (!groupRef.current) return;
-    const s = scrollRef.current; // Scroll progress 0 to 1
+    const s = scrollRef.current;
 
-    // 1. The Zig-Zag Weave: Starts Left (-3.5), weaves to Right (+3.5), then Left, etc.
-    // We use Math.cos to create a smooth wave. At s=0, it starts at exactly -3.5 (Left).
-    const targetPosX = Math.cos(s * Math.PI * 6) * -3.5;
+    // 1. Extreme Horizontal Weave: Increased from 3.5 to 7.5 to hit the screen edges
+    const targetPosX = Math.cos(s * Math.PI * 3) * -7.5;
 
-    // 2. Move Top to Bottom: Starts lower down (1.0 instead of 2.5) so it's not at the very top
-    const targetPosY = 1.0 - (s * 2.8);
+    // 2. Extreme Vertical Path: Increased the travel distance to cover more of the screen height
+    const targetPosY = 3.5 - (s * 7.0);
 
-    // 3. Spin Vertically: Continuous luxurious spin as you scroll down
+    // 3. Luxurious Spin
     const targetRotY = s * Math.PI * 8;
 
-    // 4. Dynamic Tilt: Gives it a slight breathing wobble as it changes directions
-    const targetRotZ = 0.2 + Math.sin(s * Math.PI * 4) * 0.1;
+    // 4. Dynamic Tilt
+    const targetRotZ = 0.2 + Math.sin(s * Math.PI * 2) * 0.1;
 
-    // Apply smooth movement
+    // Smooth Interpolation
     groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 4);
     groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 4);
     groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, delta * 4);
@@ -116,7 +115,7 @@ export default function ThreeRupee() {
         aria-hidden="true"
       >
         <Canvas
-          camera={{ position: [0, 0, 10], fov: 40 }}
+          camera={{ position: [0, 0, 16], fov: 50 }}
           gl={{ antialias: true, alpha: true }}
           style={{ background: 'transparent' }}
         >
@@ -127,4 +126,4 @@ export default function ThreeRupee() {
       </div>
     </>
   );
-}
+}// Final push update
