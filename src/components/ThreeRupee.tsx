@@ -35,9 +35,14 @@ function RupeeMesh({ scrollRef }: { scrollRef: React.MutableRefObject<number> })
     if (!groupRef.current) return;
     const s = scrollRef.current;
 
+    // --- MOBILE DETECTION ---
+    const isMobile = viewport.width < 5; // If viewport is narrow, trigger mobile mode
+
     // --- THE TRUE EDGE MATH WITH PADDING ---
-    // Increased the padding from 1.5 to 3.5 to keep the edges of the symbol visible
-    const horizontalEdge = (viewport.width / 2) - 3.5;
+    // Desktop stays at 3.5. Mobile gets 0.8 so the shrunken icon doesn't fly off-screen.
+    const horizontalEdge = isMobile
+      ? (viewport.width / 2) - 0.8
+      : (viewport.width / 2) - 3.5;
 
     // Vertical padding prevents "head" and "feet" clipping
     const topEdge = (viewport.height / 2) - 3.0;
@@ -56,11 +61,20 @@ function RupeeMesh({ scrollRef }: { scrollRef: React.MutableRefObject<number> })
     // Z-Axis Tilt: POSITIVE 0.4 leans the top to the left (counter-clockwise)
     const targetRotZ = 0.4 + (s * 0.1);
 
+    // --- DYNAMIC SCALING FOR MOBILE ---
+    // Drops the size down to 35% on mobile, stays at 100% (1.0) on desktop
+    const targetScale = isMobile ? 0.35 : 1.0;
+
     // Smooth movement execution
     groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, targetPosX, delta * 4);
     groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, targetPosY, delta * 4);
     groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotY, delta * 4);
     groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, targetRotZ, delta * 4);
+
+    // Smooth scale execution
+    const currentScale = groupRef.current.scale.x;
+    const lerpedScale = THREE.MathUtils.lerp(currentScale, targetScale, delta * 4);
+    groupRef.current.scale.set(lerpedScale, lerpedScale, lerpedScale);
   });
 
   return (
