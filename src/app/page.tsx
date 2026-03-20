@@ -160,6 +160,20 @@ function Hero() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoReady, setVideoReady] = useState(false);
 
+  // ADD THIS NEW STATE AND EFFECT:
+  const [memoryVideoSrc, setMemoryVideoSrc] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    // This fetches the ENTIRE video over the network and saves it to the browser's RAM
+    fetch('/videos/hero.mp4')
+      .then((response) => response.blob())
+      .then((blob) => {
+        const memoryUrl = URL.createObjectURL(blob);
+        setMemoryVideoSrc(memoryUrl);
+      })
+      .catch((err) => console.error("Video load error:", err));
+  }, []);
+
   // Raw scroll progress over the 500vh track
   const { scrollYProgress } = useScroll({
     target: wrapperRef,
@@ -235,13 +249,13 @@ function Hero() {
             playsInline  — works on iOS Safari
             preload=auto — buffers the full video so scrubbing is instant
         */}
+        {/* ── HTML5 Video ─────────────────────────────────────────────────── */}
         <video
           ref={videoRef}
+          src={memoryVideoSrc}
           muted
           playsInline
-          preload="auto"
           onLoadedData={() => {
-            // Seek to frame 0 and mark as ready
             if (videoRef.current) videoRef.current.currentTime = 0;
             setVideoReady(true);
           }}
@@ -256,9 +270,7 @@ function Hero() {
             opacity: videoReady ? 1 : 0,
             transition: 'opacity 0.5s ease',
           }}
-        >
-          <source src="/videos/hero.mp4" type="video/mp4" />
-        </video>
+        />
 
         {/* ── Dark scrim (helps text legibility over video) ────────────────── */}
         <div
@@ -427,7 +439,7 @@ function Hero() {
           }}
         />
       </div>
-    </div>
+    </div >
   );
 }
 
