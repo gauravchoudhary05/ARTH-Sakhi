@@ -31,14 +31,13 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${playfair.variable}`}>
-      <body className="font-sans antialiased bg-[#F9F7F2] text-[#1B3022]">
+    <html lang="en">
+      {/* Add overflow-x-hidden and w-full right here! */}
+      <body className={`overflow-x-hidden w-full ${inter.className}`}>
         {children}
       </body>
     </html>
-  );
+  )
 }
