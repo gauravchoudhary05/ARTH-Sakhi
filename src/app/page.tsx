@@ -145,73 +145,91 @@ function Navbar() {
   );
 }
 
-// ─── SECTION 1: HERO — SCROLL-SCRUBBING VIDEO ────────────────────────────────
-//
-// Architecture:
-//   • A tall wrapper div (500vh) acts as the scroll track.
-//   • An inner div with position:sticky + height:100vh pins the video to the
-//     viewport while the user scrolls through the track.
-//   • scrollYProgress (0→1) drives a useSpring smoothed value.
-//   • The spring value is mapped to video.currentTime via useMotionValueEvent.
-//   • Overlay text fades out + moves up within the first 15% of scroll.
-//
+// ─── SECTION 1: HERO — SCROLL-SCRUBBING CANVAS (SMOOTH) ──────────────────────
 function Hero() {
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoReady, setVideoReady] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // ADD THIS NEW STATE AND EFFECT:
-  const [memoryVideoSrc, setMemoryVideoSrc] = useState<string | undefined>(undefined);
+  // Canvas State
+  const [imagesLoaded, setImagesLoaded] = useState(false);
+  const [images, setImages] = useState<HTMLImageElement[]>([]);
 
+  // 🔴 IMPORTANT: Change this to match the last number in your folder!
+  const FRAME_COUNT = 120;
+
+  // 1. PRELOAD IMAGES
   useEffect(() => {
-    // This fetches the ENTIRE video over the network and saves it to the browser's RAM
-    fetch('/videos/hero.mp4')
-      .then((response) => response.blob())
-      .then((blob) => {
-        const memoryUrl = URL.createObjectURL(blob);
-        setMemoryVideoSrc(memoryUrl);
-      })
-      .catch((err) => console.error("Video load error:", err));
+    const loadedImages: HTMLImageElement[] = [];
+    let loadedCount = 0;
+
+    for (let i = 1; i <= FRAME_COUNT; i++) {
+      const img = new window.Image();
+
+      // 1. Change to 6 because your file has 6 zeros (000001)
+      const paddedIndex = i.toString().padStart(6, '0');
+
+      // 2. Change 'sequence' to 'Sequence' (Capital S)
+      // 3. Add '_result' and change '.jpg' to '.webp'
+      img.src = `/Sequence/hero_${paddedIndex}_result.webp`;
+      img.onload = () => {
+        loadedCount++;
+        if (loadedCount === FRAME_COUNT) {
+          setImagesLoaded(true);
+          // Draw the first frame immediately
+          if (canvasRef.current) {
+            const ctx = canvasRef.current.getContext('2d');
+            ctx?.drawImage(loadedImages[0], 0, 0, 1920, 1080);
+          }
+        }
+      };
+
+      img.onerror = () => console.error(`Failed to load: ${img.src}`);
+      loadedImages.push(img);
+    }
+    setImages(loadedImages);
   }, []);
 
-  // Raw scroll progress over the 500vh track
+  // 2. SCROLL TRACKING
   const { scrollYProgress } = useScroll({
     target: wrapperRef,
     offset: ['start start', 'end end'],
   });
 
-  // Smooth the raw progress with a spring — this is the lerp
+  // Keep your original spring settings for a smooth feel
   const smoothProgress = useSpring(scrollYProgress, {
     stiffness: 80,
     damping: 28,
     restDelta: 0.0005,
   });
 
-  // Drive video.currentTime from the smoothed spring value
-  useMotionValueEvent(smoothProgress, 'change', (v) => {
-    const video = videoRef.current;
-    if (!video || video.readyState < 2 || !video.duration) return;
-    video.currentTime = v * video.duration;
+  // 3. DRAW TO CANVAS ON SCROLL
+  useMotionValueEvent(smoothProgress, 'change', (latest) => {
+    if (!imagesLoaded || !canvasRef.current || images.length === 0) return;
+
+    // Calculate current frame (e.g., 50% scroll * 120 frames = frame 60)
+    let frameIndex = Math.floor(latest * (FRAME_COUNT - 1));
+    frameIndex = Math.max(0, Math.min(frameIndex, FRAME_COUNT - 1));
+
+    const ctx = canvasRef.current.getContext('2d');
+    if (ctx && images[frameIndex]) {
+      // Clear the canvas and draw the new frame
+      ctx.clearRect(0, 0, 1920, 1080);
+      ctx.drawImage(images[frameIndex], 0, 0, 1920, 1080);
+    }
   });
 
-  // Overlay text fades out in first 15% of scroll
+  // 4. ANIMATE YOUR TEXT (Original Logic)
   const textOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
   const textY = useTransform(scrollYProgress, [0, 0.15], [0, -40]);
-
-  // Scroll indicator fades out quickly too
   const indicatorOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
-
-  // Progress bar at the bottom of the sticky pane
   const progressScaleX = useTransform(smoothProgress, [0, 1], [0, 1]);
 
   return (
-    // ── Scroll Track (500vh) ─────────────────────────────────────────────────
     <div
       ref={wrapperRef}
       id="hero"
       style={{ height: '500vh', position: 'relative' }}
     >
-      {/* ── Sticky Viewport Pane ─────────────────────────────────────────── */}
       <div
         style={{
           position: 'sticky',
@@ -221,44 +239,29 @@ function Hero() {
           overflow: 'hidden',
         }}
       >
-        {/* ── Gradient Fallback (visible before video loads / if no video) ── */}
+        {/* ── Fallback Gradient ── */}
         <div
           className="absolute inset-0 z-0"
           style={{
-            background:
-              'linear-gradient(135deg, #F9F7F2 0%, #EDE8DF 50%, #e0d8cc 100%)',
+            background: 'linear-gradient(135deg, #F9F7F2 0%, #EDE8DF 50%, #e0d8cc 100%)',
           }}
         />
 
-        {/* ── Dot-grid overlay ────────────────────────────────────────────── */}
+        {/* ── Dot-grid ── */}
         <div
           className="absolute inset-0 z-[1] pointer-events-none"
           style={{
             opacity: 0.025,
-            backgroundImage:
-              'radial-gradient(circle at 1px 1px, #1B3022 1px, transparent 0)',
+            backgroundImage: 'radial-gradient(circle at 1px 1px, #1B3022 1px, transparent 0)',
             backgroundSize: '28px 28px',
           }}
         />
 
-        {/* ── HTML5 Video ─────────────────────────────────────────────────── */}
-        {/*
-          IMPORTANT: place your video at public/videos/hero.mp4
-          Attributes:
-            muted        — required for scrubbing without browser restrictions
-            playsInline  — works on iOS Safari
-            preload=auto — buffers the full video so scrubbing is instant
-        */}
-        {/* ── HTML5 Video ─────────────────────────────────────────────────── */}
-        <video
-          ref={videoRef}
-          src={memoryVideoSrc}
-          muted
-          playsInline
-          onLoadedData={() => {
-            if (videoRef.current) videoRef.current.currentTime = 0;
-            setVideoReady(true);
-          }}
+        {/* ── THE MAGIC CANVAS (Replaces the <video> tag) ── */}
+        <canvas
+          ref={canvasRef}
+          width={1920}
+          height={1080}
           style={{
             position: 'absolute',
             inset: 0,
@@ -267,22 +270,21 @@ function Hero() {
             objectFit: 'cover',
             objectPosition: 'center',
             zIndex: 2,
-            opacity: videoReady ? 1 : 0,
-            transition: 'opacity 0.5s ease',
+            opacity: imagesLoaded ? 1 : 0,
+            transition: 'opacity 0.5s ease', // Fades in beautifully when loaded
           }}
         />
 
-        {/* ── Dark scrim (helps text legibility over video) ────────────────── */}
+        {/* ── Dark scrim ── */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             zIndex: 3,
-            background:
-              'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.50) 100%)',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.50) 100%)',
           }}
         />
 
-        {/* ── Overlay Text ────────────────────────────────────────────────── */}
+        {/* ── Original Overlay Text ── */}
         <motion.div
           className="absolute inset-0 flex flex-col items-center justify-center text-center px-6"
           role="banner"
@@ -293,7 +295,6 @@ function Hero() {
           }}
         >
           <div className="max-w-4xl mx-auto flex flex-col items-center gap-5">
-            {/* Badge */}
             <motion.span
               initial={{ opacity: 0, scale: 0.9, y: 12 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -310,7 +311,6 @@ function Hero() {
               A Community for Financial Awareness &amp; Investment Education
             </motion.span>
 
-            {/* Main h1 */}
             <motion.h1
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
@@ -325,7 +325,6 @@ function Hero() {
               ArthaSakhi
             </motion.h1>
 
-            {/* Tagline */}
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -343,7 +342,6 @@ function Hero() {
               Strengthening Families through Smart Investing.
             </motion.p>
 
-            {/* CTAs */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -360,12 +358,7 @@ function Hero() {
                 }}
               >
                 Discover Our Community
-                <svg
-                  className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </a>
@@ -385,7 +378,7 @@ function Hero() {
           </div>
         </motion.div>
 
-        {/* ── Scroll Indicator ────────────────────────────────────────────── */}
+        {/* ── Scroll Indicator ── */}
         <motion.div
           aria-hidden
           style={{
@@ -401,29 +394,17 @@ function Hero() {
             opacity: indicatorOpacity,
           }}
         >
-          <span
-            style={{
-              fontSize: '0.625rem',
-              fontWeight: 700,
-              letterSpacing: '0.25em',
-              textTransform: 'uppercase',
-              color: 'rgba(255,255,255,0.5)',
-            }}
-          >
+          <span style={{ fontSize: '0.625rem', fontWeight: 700, letterSpacing: '0.25em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)' }}>
             Scroll
           </span>
           <motion.div
             animate={{ y: [0, 10, 0] }}
             transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-            style={{
-              width: 1,
-              height: 48,
-              background: 'linear-gradient(to bottom, rgba(255,255,255,0.45), transparent)',
-            }}
+            style={{ width: 1, height: 48, background: 'linear-gradient(to bottom, rgba(255,255,255,0.45), transparent)' }}
           />
         </motion.div>
 
-        {/* ── Progress Bar at bottom edge ──────────────────────────────────── */}
+        {/* ── Progress Bar ── */}
         <motion.div
           aria-hidden
           style={{
@@ -439,7 +420,7 @@ function Hero() {
           }}
         />
       </div>
-    </div >
+    </div>
   );
 }
 
