@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { motion, useInView, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { motion, useInView, useScroll, useTransform, useSpring, useMotionValueEvent, AnimatePresence } from 'framer-motion';
 
 // 3D Rupee — loaded client-side only (WebGL / Canvas)
 const ThreeRupee = dynamic(() => import('@/components/ThreeRupee'), { ssr: false, loading: () => null });
@@ -49,7 +49,11 @@ function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => {
+      // This waits until you scroll past 4.5x the height of your screen 
+      // (right as the video finishes) before turning the Navbar white.
+      setScrolled(window.scrollY > window.innerHeight * 4.5);
+    };
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
@@ -141,156 +145,207 @@ function Navbar() {
   );
 }
 
-// ─── SECTION 1: HERO ─────────────────────────────────────────────────────────────
-
+// ─── SECTION 1: HERO — SCROLL-SCRUBBING VIDEO ────────────────────────────────
+//
+// Architecture:
+//   • A tall wrapper div (500vh) acts as the scroll track.
+//   • An inner div with position:sticky + height:100vh pins the video to the
+//     viewport while the user scrolls through the track.
+//   • scrollYProgress (0→1) drives a useSpring smoothed value.
+//   • The spring value is mapped to video.currentTime via useMotionValueEvent.
+//   • Overlay text fades out + moves up within the first 15% of scroll.
+//
 function Hero() {
-  const containerRef = useRef<HTMLElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const framesRef = useRef<HTMLImageElement[]>([]);
-  const frameCountRef = useRef(0);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoReady, setVideoReady] = useState(false);
+
+  // Raw scroll progress over the 500vh track
   const { scrollYProgress } = useScroll({
-    target: containerRef,
+    target: wrapperRef,
     offset: ['start start', 'end end'],
   });
-  const textOpacity = useTransform(scrollYProgress, [0, 0.3], [1, 0]);
-  const textY = useTransform(scrollYProgress, [0, 0.3], [0, -50]);
 
-  // Image sequence canvas render (scroll-scrub)
-  const renderFrame = useCallback((index: number) => {
-    const canvas = canvasRef.current;
-    const frame = framesRef.current[index];
-    if (!canvas || !frame) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    const scale = Math.max(canvas.width / frame.naturalWidth, canvas.height / frame.naturalHeight);
-    const x = (canvas.width - frame.naturalWidth * scale) / 2;
-    const y = (canvas.height - frame.naturalHeight * scale) / 2;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(frame, x, y, frame.naturalWidth * scale, frame.naturalHeight * scale);
-  }, []);
+  // Smooth the raw progress with a spring — this is the lerp
+  const smoothProgress = useSpring(scrollYProgress, {
+    stiffness: 80,
+    damping: 28,
+    restDelta: 0.0005,
+  });
 
-  useEffect(() => {
-    // Attempt to load image sequence. If images don't exist, canvas remains empty (graceful fallback).
-    const tryLoad = async () => {
-      try {
-        const res = await fetch('/images/sequence/manifest.json');
-        if (!res.ok) return;
-        const { frames, pattern } = await res.json() as { frames: number; pattern: string };
-        frameCountRef.current = frames;
-        const imgs: HTMLImageElement[] = [];
-        let loaded = 0;
-        for (let i = 1; i <= frames; i++) {
-          const img = new window.Image();
-          const idx = i;
-          img.onload = () => {
-            loaded++;
-            imgs[idx - 1] = img;
-            if (loaded === frames) renderFrame(0);
-          };
-          img.src = pattern.replace('{n}', String(i).padStart(4, '0'));
-          imgs.push(img);
-        }
-        framesRef.current = imgs;
-      } catch {
-        // No sequence loaded — canvas stays transparent (gradient background shows through)
-      }
-    };
-    tryLoad();
-  }, [renderFrame]);
+  // Drive video.currentTime from the smoothed spring value
+  useMotionValueEvent(smoothProgress, 'change', (v) => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2 || !video.duration) return;
+    video.currentTime = v * video.duration;
+  });
 
-  useEffect(() => {
-    if (frameCountRef.current === 0) return;
-    const unsubscribe = scrollYProgress.on('change', (v) => {
-      const idx = Math.min(
-        Math.floor(v * frameCountRef.current),
-        frameCountRef.current - 1
-      );
-      renderFrame(idx);
-    });
-    return unsubscribe;
-  }, [scrollYProgress, renderFrame]);
+  // Overlay text fades out in first 15% of scroll
+  const textOpacity = useTransform(scrollYProgress, [0, 0.15], [1, 0]);
+  const textY = useTransform(scrollYProgress, [0, 0.15], [0, -40]);
+
+  // Scroll indicator fades out quickly too
+  const indicatorOpacity = useTransform(scrollYProgress, [0, 0.08], [1, 0]);
+
+  // Progress bar at the bottom of the sticky pane
+  const progressScaleX = useTransform(smoothProgress, [0, 1], [0, 1]);
 
   return (
-    <section ref={containerRef} id="hero" className="relative min-h-screen">
-      <div className="relative h-screen w-full overflow-hidden">
-        {/* Canvas for scroll-scrub image sequence */}
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full object-cover z-0"
-        />
-        {/* Gradient background (visible when no sequence loaded) */}
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-[#F9F7F2] via-[#EDE8DF] to-[#e5ddd0]" />
-        {/* Decorative mesh pattern */}
+    // ── Scroll Track (500vh) ─────────────────────────────────────────────────
+    <div
+      ref={wrapperRef}
+      id="hero"
+      style={{ height: '500vh', position: 'relative' }}
+    >
+      {/* ── Sticky Viewport Pane ─────────────────────────────────────────── */}
+      <div
+        style={{
+          position: 'sticky',
+          top: 0,
+          height: '100vh',
+          width: '100%',
+          overflow: 'hidden',
+        }}
+      >
+        {/* ── Gradient Fallback (visible before video loads / if no video) ── */}
         <div
-          className="absolute inset-0 z-1 pointer-events-none opacity-[0.03]"
+          className="absolute inset-0 z-0"
           style={{
+            background:
+              'linear-gradient(135deg, #F9F7F2 0%, #EDE8DF 50%, #e0d8cc 100%)',
+          }}
+        />
+
+        {/* ── Dot-grid overlay ────────────────────────────────────────────── */}
+        <div
+          className="absolute inset-0 z-[1] pointer-events-none"
+          style={{
+            opacity: 0.025,
             backgroundImage:
               'radial-gradient(circle at 1px 1px, #1B3022 1px, transparent 0)',
             backgroundSize: '28px 28px',
           }}
         />
-        {/* Bottom vignette */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#F9F7F2]/60 pointer-events-none z-2" />
 
-        {/* Hero Content */}
-        <motion.div
-          style={{ opacity: textOpacity, y: textY }}
-          className="relative z-10 min-h-screen flex flex-col items-center justify-center text-center px-4"
+        {/* ── HTML5 Video ─────────────────────────────────────────────────── */}
+        {/*
+          IMPORTANT: place your video at public/videos/hero.mp4
+          Attributes:
+            muted        — required for scrubbing without browser restrictions
+            playsInline  — works on iOS Safari
+            preload=auto — buffers the full video so scrubbing is instant
+        */}
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          preload="auto"
+          onLoadedData={() => {
+            // Seek to frame 0 and mark as ready
+            if (videoRef.current) videoRef.current.currentTime = 0;
+            setVideoReady(true);
+          }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center',
+            zIndex: 2,
+            opacity: videoReady ? 1 : 0,
+            transition: 'opacity 0.5s ease',
+          }}
         >
-          <div className="max-w-4xl mx-auto space-y-6">
-            {/* Badge */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            >
-              <span className="inline-block px-5 py-2 bg-white/60 backdrop-blur-sm border border-[#1B3022]/10 text-[#B66D4B] text-sm font-medium rounded-full shadow-sm tracking-wide">
-                A Community for Financial Awareness &amp; Investment Education
-              </span>
-            </motion.div>
+          <source src="/videos/hero.mp4" type="video/mp4" />
+        </video>
 
-            {/* Main title */}
+        {/* ── Dark scrim (helps text legibility over video) ────────────────── */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            zIndex: 3,
+            background:
+              'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.50) 100%)',
+          }}
+        />
+
+        {/* ── Overlay Text ────────────────────────────────────────────────── */}
+        <motion.div
+          className="absolute inset-0 flex flex-col items-center justify-center text-center px-6"
+          role="banner"
+          style={{
+            zIndex: 4,
+            opacity: textOpacity,
+            y: textY,
+          }}
+        >
+          <div className="max-w-4xl mx-auto flex flex-col items-center gap-5">
+            {/* Badge */}
+            <motion.span
+              initial={{ opacity: 0, scale: 0.9, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="inline-block px-5 py-2 rounded-full text-sm font-medium tracking-wide"
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.22)',
+                color: '#F0C99A',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+              }}
+            >
+              A Community for Financial Awareness &amp; Investment Education
+            </motion.span>
+
+            {/* Main h1 */}
             <motion.h1
-              initial={{ opacity: 0, y: 28 }}
+              initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.9, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-              className="font-serif text-6xl sm:text-7xl lg:text-8xl font-bold tracking-tight text-[#1B3022] leading-[1.0]"
+              transition={{ duration: 1, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="font-serif font-bold tracking-tight leading-none"
+              style={{
+                fontSize: 'clamp(3.5rem, 10vw, 7rem)',
+                color: '#FFFFFF',
+                textShadow: '0 4px 32px rgba(0,0,0,0.45), 0 1px 3px rgba(0,0,0,0.6)',
+              }}
             >
               ArthaSakhi
             </motion.h1>
 
-            {/* Sub-headline — dark grey #373D3F for high visibility */}
-            <motion.p
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="text-xl sm:text-2xl font-semibold text-[#373D3F] tracking-tight"
-            >
-              A Community for Financial Awareness &amp; Investment decision
-            </motion.p>
-
             {/* Tagline */}
             <motion.p
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="max-w-2xl mx-auto text-base sm:text-lg text-[#1B3022]/70 leading-relaxed"
+              transition={{ duration: 0.9, delay: 0.45, ease: [0.16, 1, 0.3, 1] }}
+              style={{
+                fontSize: 'clamp(1rem, 2.5vw, 1.4rem)',
+                color: 'rgba(255,255,255,0.85)',
+                textShadow: '0 2px 12px rgba(0,0,0,0.4)',
+                maxWidth: '640px',
+                lineHeight: 1.65,
+              }}
             >
-              Empowering Women with Financial Knowledge. Strengthening Families through Smart Investing.
+              Empowering Women with Financial Knowledge.{' '}
+              <br className="hidden sm:block" />
+              Strengthening Families through Smart Investing.
             </motion.p>
 
             {/* CTAs */}
             <motion.div
-              initial={{ opacity: 0, y: 16 }}
+              initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.65, ease: [0.16, 1, 0.3, 1] }}
-              className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-2"
+              transition={{ duration: 0.9, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="flex flex-col sm:flex-row gap-4 items-center pt-2"
             >
               <a
                 href="#about"
-                className="group px-8 py-4 bg-[#1B3022] text-[#F9F7F2] font-medium rounded-full text-base transition-all duration-300 hover:scale-105 hover:bg-[#B66D4B] hover:shadow-xl flex items-center gap-2"
+                className="group flex items-center gap-2 px-8 py-3.5 rounded-full font-medium text-base transition-all duration-300 hover:scale-105"
+                style={{
+                  background: '#1B3022',
+                  color: '#F9F7F2',
+                  boxShadow: '0 6px 28px rgba(0,0,0,0.4)',
+                }}
               >
                 Discover Our Community
                 <svg
@@ -304,30 +359,75 @@ function Hero() {
               </a>
               <a
                 href="#founder"
-                className="px-8 py-4 bg-white/50 backdrop-blur-sm border border-[#1B3022]/10 text-[#1B3022] font-medium rounded-full text-base transition-all duration-300 hover:scale-105 hover:bg-white/80 shadow-sm"
+                className="px-8 py-3.5 rounded-full font-medium text-base transition-all duration-300 hover:scale-105"
+                style={{
+                  background: 'rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  color: '#FFFFFF',
+                }}
               >
                 Meet the Founder
               </a>
             </motion.div>
           </div>
-
-          {/* Scroll indicator */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.5, duration: 0.8 }}
-            className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-[#1B3022]/40"
-          >
-            <span className="text-[10px] font-bold tracking-[0.25em] uppercase">Scroll</span>
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
-              className="w-px h-12 bg-gradient-to-b from-[#1B3022]/40 to-transparent"
-            />
-          </motion.div>
         </motion.div>
+
+        {/* ── Scroll Indicator ────────────────────────────────────────────── */}
+        <motion.div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            bottom: 40,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 8,
+            zIndex: 5,
+            opacity: indicatorOpacity,
+          }}
+        >
+          <span
+            style={{
+              fontSize: '0.625rem',
+              fontWeight: 700,
+              letterSpacing: '0.25em',
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,0.5)',
+            }}
+          >
+            Scroll
+          </span>
+          <motion.div
+            animate={{ y: [0, 10, 0] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              width: 1,
+              height: 48,
+              background: 'linear-gradient(to bottom, rgba(255,255,255,0.45), transparent)',
+            }}
+          />
+        </motion.div>
+
+        {/* ── Progress Bar at bottom edge ──────────────────────────────────── */}
+        <motion.div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            zIndex: 6,
+            transformOrigin: 'left center',
+            scaleX: progressScaleX,
+            background: 'linear-gradient(90deg, #B66D4B, #F0C99A)',
+          }}
+        />
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -877,9 +977,11 @@ function Footer() {
 
 // ─── PAGE ────────────────────────────────────────────────────────────────────────
 
+// ─── PAGE ────────────────────────────────────────────────────────────────────────
+
 export default function Home() {
   return (
-    <main className="min-h-screen w-full overflow-x-hidden">
+    <main className="min-h-screen w-full">
       {/* 3D Rupee — fixed behind all content, scroll-reactive */}
       <ThreeRupee />
       <Navbar />
