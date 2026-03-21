@@ -50,19 +50,25 @@ function Navbar() {
 
   useEffect(() => {
     const onScroll = () => {
-      // This waits until you scroll past 4.5x the height of your screen 
-      // (right as the video finishes) before turning the Navbar white.
-      setScrolled(window.scrollY > window.innerHeight * 4.5);
+      // 🔴 THE MATH FIX: Since your Hero is 800vh, we wait until you scroll 
+      // past 7.5x the screen height. This perfectly times the Navbar drop
+      // with the very last frame of your video!
+      setScrolled(window.scrollY > window.innerHeight * 7.5);
     };
+
+    // Check on initial load in case the user refreshes halfway down the page
+    onScroll();
+
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   return (
     <nav
-      className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${scrolled
-        ? 'bg-[#F9F7F2]/90 backdrop-blur-md shadow-sm border-b border-[#1B3022]/5'
-        : 'bg-transparent'
+      className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ease-in-out ${scrolled
+          ? 'translate-y-0 opacity-100 bg-[#F9F7F2]/90 backdrop-blur-md shadow-sm border-b border-[#1B3022]/5'
+          // 🔴 HIDES THE NAVBAR COMPLETELY DURING THE VIDEO
+          : '-translate-y-full opacity-0'
         }`}
     >
       <div className="max-w-7xl mx-auto px-6 sm:px-8 flex items-center justify-between py-4">
@@ -155,7 +161,7 @@ function Hero() {
   const [images, setImages] = useState<HTMLImageElement[]>([]);
 
   // 🔴 IMPORTANT: Change this to match the last number in your folder!
-  const FRAME_COUNT = 120;
+  const FRAME_COUNT = 240;
 
   // 1. PRELOAD IMAGES
   useEffect(() => {
@@ -164,18 +170,16 @@ function Hero() {
 
     for (let i = 1; i <= FRAME_COUNT; i++) {
       const img = new window.Image();
-
-      // 1. Change to 6 because your file has 6 zeros (000001)
       const paddedIndex = i.toString().padStart(6, '0');
 
-      // 2. Change 'sequence' to 'Sequence' (Capital S)
-      // 3. Add '_result' and change '.jpg' to '.webp'
-      img.src = `/Sequence/hero_${paddedIndex}_result.webp`;
+      // 🔴 This points exactly to your new folder and correct name format!
+      img.src = `/hero-sequence/hero_${paddedIndex}_result.webp`;
+
       img.onload = () => {
         loadedCount++;
+        // When all 240 images finish loading, reveal the canvas
         if (loadedCount === FRAME_COUNT) {
           setImagesLoaded(true);
-          // Draw the first frame immediately
           if (canvasRef.current) {
             const ctx = canvasRef.current.getContext('2d');
             ctx?.drawImage(loadedImages[0], 0, 0, 1920, 1080);
@@ -183,11 +187,15 @@ function Hero() {
         }
       };
 
-      img.onerror = () => console.error(`Failed to load: ${img.src}`);
+      img.onerror = () => {
+        console.error(`Failed to load: ${img.src}`);
+      };
+
       loadedImages.push(img);
     }
+
     setImages(loadedImages);
-  }, []);
+  }, []); // <-- Make sure this final line is included!
 
   // 2. SCROLL TRACKING
   const { scrollYProgress } = useScroll({
@@ -228,7 +236,7 @@ function Hero() {
     <div
       ref={wrapperRef}
       id="hero"
-      style={{ height: '500vh', position: 'relative' }}
+      style={{ height: '800vh', position: 'relative' }}
     >
       <div
         style={{
