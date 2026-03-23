@@ -53,7 +53,7 @@ function Navbar() {
       // 🔴 THE MATH FIX: Since your Hero is 800vh, we wait until you scroll 
       // past 7.5x the screen height. This perfectly times the Navbar drop
       // with the very last frame of your video!
-      setScrolled(window.scrollY > window.innerHeight * 7.5);
+      setScrolled(window.scrollY > window.innerHeight * 5.5);
     };
 
     // Check on initial load in case the user refreshes halfway down the page
@@ -66,9 +66,9 @@ function Navbar() {
   return (
     <nav
       className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ease-in-out ${scrolled
-          ? 'translate-y-0 opacity-100 bg-[#F9F7F2]/90 backdrop-blur-md shadow-sm border-b border-[#1B3022]/5'
-          // 🔴 HIDES THE NAVBAR COMPLETELY DURING THE VIDEO
-          : '-translate-y-full opacity-0'
+        ? 'translate-y-0 opacity-100 bg-[#F9F7F2]/90 backdrop-blur-md shadow-sm border-b border-[#1B3022]/5'
+        // 🔴 HIDES THE NAVBAR COMPLETELY DURING THE VIDEO
+        : '-translate-y-full opacity-0'
         }`}
     >
       <div className="max-w-7xl mx-auto px-6 sm:px-8 flex items-center justify-between py-4">
@@ -236,7 +236,7 @@ function Hero() {
     <div
       ref={wrapperRef}
       id="hero"
-      style={{ height: '800vh', position: 'relative' }}
+      style={{ height: '600vh', position: 'relative' }}
     >
       <div
         style={{
