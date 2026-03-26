@@ -9,7 +9,6 @@ const navLinks = [
   { label: 'Founder', href: '#founder' },
   { label: 'Services', href: '#services' },
   { label: 'Impact', href: '#impact' },
-  { label: 'Contact', href: '#contact' },
 ];
 
 export default function Navbar() {
@@ -56,12 +55,6 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
-            <a
-              href="#contact"
-              className="px-5 py-2.5 bg-forest-green text-warm-sand text-sm font-medium rounded-full hover:bg-soft-olive transition-all duration-300 hover:shadow-lg hover:shadow-forest-green/20"
-            >
-              Join Us
-            </a>
           </div>
 
           {/* Mobile Hamburger */}
@@ -115,13 +108,6 @@ export default function Navbar() {
                   {link.label}
                 </motion.a>
               ))}
-              <a
-                href="#contact"
-                onClick={() => setMenuOpen(false)}
-                className="mt-2 px-5 py-3 bg-forest-green text-warm-sand text-sm font-medium rounded-full text-center hover:bg-soft-olive transition-all duration-300"
-              >
-                Join Us
-              </a>
             </div>
           </motion.div>
         )}

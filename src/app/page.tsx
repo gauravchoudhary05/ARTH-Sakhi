@@ -41,7 +41,6 @@ const NAV_LINKS = [
   { label: 'Mission', id: 'mission' },
   { label: 'Impact', id: 'impact' },
   { label: 'Founder', id: 'founder' },
-  { label: 'Contact', id: 'contact' },
 ];
 
 function Navbar() {
@@ -97,12 +96,6 @@ function Navbar() {
               {l.label}
             </a>
           ))}
-          <a
-            href="#contact"
-            className="px-5 py-2.5 bg-[#1B3022] text-[#F9F7F2] text-sm font-medium rounded-full transition-all duration-300 hover:scale-105 hover:bg-[#B66D4B] hover:shadow-lg"
-          >
-            Join Us
-          </a>
         </div>
 
         <button
@@ -136,13 +129,6 @@ function Navbar() {
                   {l.label}
                 </a>
               ))}
-              <a
-                href="#contact"
-                onClick={() => setMenuOpen(false)}
-                className="mt-2 px-5 py-3 bg-[#1B3022] text-[#F9F7F2] text-sm font-medium rounded-full text-center"
-              >
-                Join Us
-              </a>
             </div>
           </motion.div>
         )}
@@ -468,7 +454,7 @@ function About() {
   );
 }
 
-// ─── SECTION 3: OUR MISSION ──────────────────────────────────────────────────────
+// ─── SECTION 3: Our Mission  ──────────────────────────────────────────────────────
 
 function Mission() {
   return (
@@ -811,21 +797,21 @@ function Founder() {
   );
 }
 
-// ─── SECTION 8: MESSAGES ─────────────────────────────────────────────────────────
+// ─── SECTION 8: Words from our Heart ─────────────────────────────────────────────────────────
 
-function Messages() {
+function Wordsfromtheheart() {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: '-60px' });
 
   return (
-    <section id="messages" className="py-32">
+    <section id="Words from the Heart" className="py-32">
       <div className="max-w-5xl mx-auto px-6 sm:px-8" ref={ref}>
         <FadeUp className="text-center mb-16">
           <span className="inline-block px-4 py-1.5 bg-[#1B3022]/8 text-[#B66D4B] text-sm font-semibold rounded-full mb-4 tracking-wide uppercase">
             Words from the Heart
           </span>
           <h2 className="font-serif text-4xl sm:text-5xl font-bold text-[#1B3022] leading-[1.1]">
-            Our <span className="text-[#B66D4B] italic">Messages</span>
+            Words from the <span className="text-[#B66D4B] italic">Heart</span>
           </h2>
         </FadeUp>
 
@@ -951,7 +937,7 @@ function Footer() {
 
           {/* Nav */}
           <div className="flex flex-wrap items-center justify-center gap-6">
-            {['about', 'mission', 'impact', 'founder', 'messages'].map((id) => (
+            {['about', 'mission', 'impact', 'founder', 'Words from the Heart'].map((id) => (
               <a
                 key={id}
                 href={`#${id}`}
@@ -993,7 +979,7 @@ export default function Home() {
       <CommunityImpact />
       <WhyItMatters />
       <Founder />
-      <Messages />
+      <Wordsfromtheheart />
       <Footer />
     </main>
   );
